@@ -10,6 +10,7 @@ import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { getSeasonEpisodes, getTvDetails } from "@/lib/tmdb";
 import { withBackoff } from "@/lib/retry";
 import { buildWatchProgress } from "@/lib/progress";
+import { trackDrawerOpen, trackSeasonSwitch } from "@/lib/telemetry";
 import type { TvEpisode, TvShowDetails } from "@/lib/tmdb";
 import type { MediaType, WatchQueueItem } from "@/types";
 
@@ -346,6 +347,7 @@ const startNextEpisode = useCallback(
 
   const handleSelectSeason = (seasonNumber: number) => {
     interactedRef.current = true;
+    trackSeasonSwitch(seasonNumber);
     setSelectedSeason(seasonNumber);
     setSelectedEpisode(1);
     setStartAtTime(0);
@@ -572,7 +574,10 @@ const startNextEpisode = useCallback(
       {mediaType === "tv" && !isDrawerOpen ? (
         <button
           type="button"
-          onClick={() => setIsDrawerOpen(true)}
+          onClick={() => {
+            trackDrawerOpen(selectedSeason, episodes.length);
+            setIsDrawerOpen(true);
+          }}
           aria-label="Show episodes"
           className="absolute right-6 top-6 z-50 flex items-center gap-2 rounded-full border border-white/8 bg-black/40 p-3 text-white backdrop-blur-xl transition-all hover:bg-black/60"
         >

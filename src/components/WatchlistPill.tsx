@@ -1,6 +1,7 @@
 "use client";
 
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { trackListToggle } from "@/lib/telemetry";
 import type { MediaItem } from "@/types";
 
 interface WatchlistPillProps {
@@ -14,7 +15,14 @@ export default function WatchlistPill({ item }: WatchlistPillProps) {
   return (
     <button
       type="button"
-      onClick={() => toggle(item)}
+      onClick={() => {
+        trackListToggle(!active, {
+          type: item.type,
+          tmdbId: item.id,
+          title: item.title,
+        });
+        toggle(item);
+      }}
       aria-pressed={active}
       className="flex items-center gap-2 rounded-full bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md transition-all duration-300 hover:scale-105 hover:bg-white/20"
     >

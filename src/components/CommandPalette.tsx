@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { searchMedia } from "@/lib/tmdb";
+import { trackSearch } from "@/lib/telemetry";
 import type { MediaItem } from "@/types";
 
 const DEBOUNCE_MS = 300;
@@ -61,6 +62,10 @@ export default function CommandPalette({
   const trimmedQuery = query.trim();
   const searching = trimmedQuery.length > 0 && state?.query !== trimmedQuery;
   const results = state && state.query === trimmedQuery ? state.items : [];
+
+  useEffect(() => {
+    if (state) trackSearch(trimmedQuery);
+  }, [state, trimmedQuery]);
 
   return (
     <div

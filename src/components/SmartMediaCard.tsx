@@ -6,12 +6,14 @@ import WatchlistButton from "@/components/WatchlistButton";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { POSTER_SIZE, POSTER_SIZES_ATTR } from "@/lib/poster";
 import { formatTimeRemaining, watchKey } from "@/lib/progress";
+import { trackRowClick } from "@/lib/telemetry";
 import type { MediaItem } from "@/types";
 
 interface SmartMediaCardProps {
   item: MediaItem;
   sizes?: string;
   showNewBadge?: boolean;
+  rowLabel?: string;
 }
 
 const IN_PROGRESS_MAX = 95;
@@ -20,6 +22,7 @@ export default function SmartMediaCard({
   item,
   sizes = POSTER_SIZES_ATTR,
   showNewBadge = false,
+  rowLabel,
 }: SmartMediaCardProps) {
   const { history } = useWatchHistory();
 
@@ -43,6 +46,12 @@ export default function SmartMediaCard({
       <Link
         href={`/title/${item.type}/${item.id}`}
         aria-label={item.title}
+        onClick={() => {
+          trackRowClick(rowLabel ?? "row", {
+            type: item.type,
+            tmdbId: item.id,
+          });
+        }}
         className="group block relative aspect-[2/3] w-full shrink-0 overflow-hidden rounded-lg bg-card"
       >
         {item.posterPath ? (

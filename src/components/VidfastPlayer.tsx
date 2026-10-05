@@ -4,6 +4,12 @@ import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useAppPreferences } from "@/hooks/useAppPreferences";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { buildWatchProgress } from "@/lib/progress";
+import {
+  trackPlayerError,
+  trackWatchComplete,
+  trackWatchStart,
+  trackWatchStop,
+} from "@/lib/telemetry";
 
 interface VidfastPlayerProps {
   tmdbId: number;
@@ -54,6 +60,55 @@ function VidfastPlayer({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const { saveProgress } = useWatchHistory();
   const { prefs } = useAppPreferences();
+
+  const telemetryRef = useRef({
+    sessionStart: 0,
+    lastCurrentTime: 0,
+    lastDuration: 0,
+    started: false,
+  });
+
+  useEffect(() => {
+    telemetryRef.current = {
+      sessionStart: Date.now(),
+      lastCurrentTime: 0,
+      lastDuration: 0,
+      started: true,
+    };
+
+    trackWatchStart({
+      type,
+      tmdbId,
+      season: type === "tv" ? season : undefined,
+      episode: type === "tv" ? episode : undefined,
+    });
+
+    return () => {
+      const telemetry = telemetryRef.current;
+
+      if (!telemetry.started) return;
+
+      const seconds =
+        telemetry.lastCurrentTime > 0
+          ? telemetry.lastCurrentTime
+          : (Date.now() - telemetry.sessionStart) / 1000;
+      const percentage =
+        telemetry.lastDuration > 0
+          ? (telemetry.lastCurrentTime / telemetry.lastDuration) * 100
+          : 0;
+
+      trackWatchStop(
+        {
+          type,
+          tmdbId,
+          season: type === "tv" ? season : undefined,
+          episode: type === "tv" ? episode : undefined,
+        },
+        Math.round(seconds),
+        Math.round(percentage)
+      );
+    };
+  }, [episode, season, tmdbId, type]);
 
   const applyPreferences = useCallback(
     (volume: number, speed: number) => {
@@ -124,11 +179,19 @@ function VidfastPlayer({
         !endNotifiedRef.current
       ) {
         endNotifiedRef.current = true;
+        trackWatchComplete({
+          type,
+          tmdbId,
+          season: type === "tv" ? season : undefined,
+          episode: type === "tv" ? episode : undefined,
+        });
         onComplete?.(duration, currentTime);
       }
 
       if (now - lastSaveRef.current >= SAVE_THROTTLE_MS) {
         lastSaveRef.current = now;
+        telemetryRef.current.lastCurrentTime = currentTime;
+        telemetryRef.current.lastDuration = duration ?? 0;
 
         saveProgress(
           buildWatchProgress({
@@ -172,6 +235,7 @@ function VidfastPlayer({
         Date.now() - lastAdvanceAtRef.current >= STALL_THRESHOLD_MS
       ) {
         stallFiredRef.current = true;
+        trackPlayerError({ type, tmdbId }, `stalled at ${lastTimeRef.current.toFixed(0)}s`);
         onStall?.(lastTimeRef.current, lastDurationRef.current);
       }
     }, STALL_POLL_MS);
@@ -179,7 +243,7 @@ function VidfastPlayer({
     return () => {
       window.clearInterval(poll);
     };
-  }, [onStall]);
+  }, [onStall, tmdbId, type]);
 
   useEffect(() => {
     return () => {

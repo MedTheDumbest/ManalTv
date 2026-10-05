@@ -7,6 +7,10 @@ import {
   verifyPin,
 } from "@/lib/accounts";
 import type { ProfileId } from "@/lib/accounts";
+import {
+  contextFromRequest,
+  recordSecurityEvent,
+} from "@/lib/telemetry-server";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
@@ -39,6 +43,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const context = contextFromRequest(request);
+
   const body = (await request.json().catch(() => null)) as
     | { profile?: unknown; pin?: unknown }
     | null;
@@ -54,11 +60,15 @@ export async function POST(request: Request) {
   }
 
   if (!verifyPin(profile, pin)) {
+    context.profile = profile;
+    await recordSecurityEvent(context, "login_failure", `profile ${profile}`);
     return json(
       { ok: false, error: "Incorrect PIN" },
       401
     );
   }
+
+  context.profile = profile;
 
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_PROFILE_COOKIE, profile, {
@@ -69,19 +79,27 @@ export async function POST(request: Request) {
     maxAge: COOKIE_MAX_AGE,
   });
 
+  await recordSecurityEvent(context, "login_success", `profile ${profile}`);
+
   return json({
     ok: true,
     profile: profilePayload(profile),
   });
 }
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_PROFILE_COOKIE, "", {
     maxAge: 0,
     path: "/",
   });
   cookieStore.delete(ACTIVE_PROFILE_COOKIE);
+
+  await recordSecurityEvent(
+    contextFromRequest(request),
+    "logout",
+    "profile cleared"
+  );
 
   return json({ ok: true });
 }

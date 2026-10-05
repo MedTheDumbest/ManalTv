@@ -1,6 +1,7 @@
 "use client";
 
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { trackListToggle } from "@/lib/telemetry";
 import type { MediaItem } from "@/types";
 
 interface WatchlistButtonProps {
@@ -18,6 +19,11 @@ export default function WatchlistButton({
   const handleClick = (event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
+    trackListToggle(!active, {
+      type: item.type,
+      tmdbId: item.id,
+      title: item.title,
+    });
     toggle(item);
   };
 

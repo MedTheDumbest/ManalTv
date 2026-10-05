@@ -9,6 +9,7 @@ import { useAppPreferences } from "@/hooks/useAppPreferences";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { resetRemoteStores } from "@/lib/remote-stores";
+import { trackSurprisePick } from "@/lib/telemetry";
 import { watchKey } from "@/lib/progress";
 import type { MediaType } from "@/types";
 
@@ -169,6 +170,7 @@ export default function Navbar() {
       const pick = pool[pickRandomIndex(pool.length)];
       if (!pick) return;
 
+      trackSurprisePick({ type: pick.mediaType, tmdbId: pick.tmdbId });
       router.push(`/watch/${pick.mediaType}/${pick.tmdbId}`);
     },
     [buildPool, router]

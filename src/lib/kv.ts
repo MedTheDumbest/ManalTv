@@ -45,6 +45,18 @@ async function ensureConnected(c: Redis): Promise<void> {
   return connectPromise;
 }
 
+export async function getRedis(): Promise<Redis | null> {
+  const c = getClient();
+  if (!c) return null;
+
+  try {
+    await ensureConnected(c);
+    return c;
+  } catch {
+    return null;
+  }
+}
+
 export async function readUserData(profileId: ProfileId): Promise<UserData> {
   const c = getClient();
   if (!c) return EMPTY_DATA;

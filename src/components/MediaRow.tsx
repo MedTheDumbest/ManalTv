@@ -23,6 +23,7 @@ export default function MediaRow({
           key={`${item.type}-${item.id}`}
           item={item}
           showNewBadge={showNewBadge}
+          rowLabel={title}
         />
       ))}
     </MediaRowSection>

@@ -1,3 +1,5 @@
+import { trackApiError } from "@/lib/telemetry";
+
 export async function jsonFetch<T>(
   url: string,
   init?: RequestInit
@@ -13,6 +15,7 @@ export async function jsonFetch<T>(
       },
     });
   } catch {
+    trackApiError(url, 0);
     throw new Error("Network request failed");
   }
 
@@ -23,6 +26,7 @@ export async function jsonFetch<T>(
   }
 
   if (!res.ok) {
+    trackApiError(url, res.status);
     throw new Error(`Request failed with status ${res.status}`);
   }
 
