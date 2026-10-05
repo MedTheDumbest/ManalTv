@@ -61,7 +61,8 @@ export function trackWatchStart(media: MediaRef): void {
 export function trackWatchStop(
   media: MediaRef,
   seconds: number,
-  percentage: number
+  percentage: number,
+  duration = 0
 ): void {
   track("watch_stop", {
     type: media.type,
@@ -71,6 +72,7 @@ export function trackWatchStop(
     episode: media.episode ?? 0,
     seconds: Math.max(0, Math.round(seconds)),
     pct: Math.round(percentage),
+    duration: Math.max(0, Math.round(duration)),
   });
 }
 

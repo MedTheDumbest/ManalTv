@@ -235,6 +235,11 @@ function readString(data: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value.slice(0, STRING_MAX) : "";
 }
 
+function readFlag(data: Record<string, unknown>, key: string): boolean {
+  const value = data[key];
+  return value === true || value === "true";
+}
+
 async function bumpRollups(
   redis: NonNullable<Awaited<ReturnType<typeof getRedis>>>,
   name: TelemetryEventName,
@@ -265,7 +270,7 @@ async function bumpRollups(
   } else if (name === "row_click") {
     bump("row_clicks");
   } else if (name === "list_toggle") {
-    bump(readString(data, "added") === "true" ? "list_adds" : "list_removes");
+    bump(readFlag(data, "added") ? "list_adds" : "list_removes");
   } else if (name === "season_switch") {
     bump("season_switches");
   } else if (name === "drawer_open") {
@@ -318,6 +323,9 @@ async function bumpTitles(
   const key = keys.title(type, tmdbId);
   const seconds = readNumber(data, "seconds");
   const pct = readNumber(data, "pct");
+  const season = readNumber(data, "season");
+  const episode = readNumber(data, "episode");
+  const duration = readNumber(data, "duration");
   const pipeline = redis.pipeline();
 
   if (name === "watch_start") {
@@ -325,7 +333,8 @@ async function bumpTitles(
     pipeline.hset(key, "type", type);
     pipeline.hset(key, "tmdbId", tmdbId);
     if (readString(data, "title")) pipeline.hset(key, "title", readString(data, "title"));
-    if (readString(data, "season")) pipeline.hset(key, "season", readString(data, "season"));
+    if (season > 0) pipeline.hset(key, "season", season);
+    if (episode > 0) pipeline.hset(key, "episode", episode);
   }
 
   if (name === "watch_stop" && seconds > 0) {
@@ -344,6 +353,10 @@ async function bumpTitles(
     pipeline.hset(key, "last_pct", pct);
     pipeline.hincrbyfloat(key, "pct_sum", pct);
     pipeline.hincrby(key, "pct_samples", 1);
+  }
+
+  if (duration > 0) {
+    pipeline.hset(key, "duration", duration);
   }
 
   const genres = readString(data, "genres");

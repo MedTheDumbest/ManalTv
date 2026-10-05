@@ -18,6 +18,7 @@ interface VidfastPlayerProps {
   episode?: number;
   startAt?: number;
   server?: number;
+  title?: string;
   onComplete?: (duration: number, currentTime: number) => void;
   onStall?: (currentTime: number, duration: number) => void;
 }
@@ -43,6 +44,7 @@ function VidfastPlayer({
   episode,
   startAt,
   server = 1,
+  title = "",
   onComplete,
   onStall,
 }: VidfastPlayerProps) {
@@ -68,6 +70,22 @@ function VidfastPlayer({
     started: false,
   });
 
+  const titleRef = useRef(title);
+  const trackedMedia = useCallback(
+    () => ({
+      type,
+      tmdbId,
+      title: titleRef.current,
+      season: type === "tv" ? season : undefined,
+      episode: type === "tv" ? episode : undefined,
+    }),
+    [episode, season, tmdbId, type]
+  );
+
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
   useEffect(() => {
     telemetryRef.current = {
       sessionStart: Date.now(),
@@ -76,12 +94,7 @@ function VidfastPlayer({
       started: true,
     };
 
-    trackWatchStart({
-      type,
-      tmdbId,
-      season: type === "tv" ? season : undefined,
-      episode: type === "tv" ? episode : undefined,
-    });
+    trackWatchStart(trackedMedia());
 
     return () => {
       const telemetry = telemetryRef.current;
@@ -98,17 +111,13 @@ function VidfastPlayer({
           : 0;
 
       trackWatchStop(
-        {
-          type,
-          tmdbId,
-          season: type === "tv" ? season : undefined,
-          episode: type === "tv" ? episode : undefined,
-        },
+        trackedMedia(),
         Math.round(seconds),
-        Math.round(percentage)
+        Math.round(percentage),
+        Math.round(telemetry.lastDuration)
       );
     };
-  }, [episode, season, tmdbId, type]);
+  }, [trackedMedia]);
 
   const applyPreferences = useCallback(
     (volume: number, speed: number) => {
@@ -179,12 +188,7 @@ function VidfastPlayer({
         !endNotifiedRef.current
       ) {
         endNotifiedRef.current = true;
-        trackWatchComplete({
-          type,
-          tmdbId,
-          season: type === "tv" ? season : undefined,
-          episode: type === "tv" ? episode : undefined,
-        });
+        trackWatchComplete(trackedMedia());
         onComplete?.(duration, currentTime);
       }
 
@@ -212,7 +216,7 @@ function VidfastPlayer({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [episode, onComplete, saveProgress, season, tmdbId, type]);
+  }, [episode, onComplete, saveProgress, season, tmdbId, trackedMedia, type]);
 
   useEffect(() => {
     endNotifiedRef.current = false;

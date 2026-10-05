@@ -409,6 +409,7 @@ const startNextEpisode = useCallback(
             season={mediaType === "tv" ? selectedSeason : undefined}
             episode={mediaType === "tv" ? selectedEpisode : undefined}
             startAt={startAtTime}
+            title={mediaType === "tv" ? tvDetails?.title : undefined}
             onComplete={handleComplete}
             onStall={handleStall}
           />
