@@ -328,13 +328,15 @@ async function bumpTitles(
   const duration = readNumber(data, "duration");
   const pipeline = redis.pipeline();
 
+  pipeline.hset(key, "type", type);
+  pipeline.hset(key, "tmdbId", tmdbId);
+  if (readString(data, "title")) pipeline.hset(key, "title", readString(data, "title"));
+  if (season > 0) pipeline.hset(key, "season", season);
+  if (episode > 0) pipeline.hset(key, "episode", episode);
+  if (duration > 0) pipeline.hset(key, "duration", duration);
+
   if (name === "watch_start") {
     pipeline.hincrby(key, "plays", 1);
-    pipeline.hset(key, "type", type);
-    pipeline.hset(key, "tmdbId", tmdbId);
-    if (readString(data, "title")) pipeline.hset(key, "title", readString(data, "title"));
-    if (season > 0) pipeline.hset(key, "season", season);
-    if (episode > 0) pipeline.hset(key, "episode", episode);
   }
 
   if (name === "watch_stop" && seconds > 0) {
@@ -353,10 +355,6 @@ async function bumpTitles(
     pipeline.hset(key, "last_pct", pct);
     pipeline.hincrbyfloat(key, "pct_sum", pct);
     pipeline.hincrby(key, "pct_samples", 1);
-  }
-
-  if (duration > 0) {
-    pipeline.hset(key, "duration", duration);
   }
 
   const genres = readString(data, "genres");
@@ -609,6 +607,9 @@ export interface TitleAggregate {
   lastPct: number;
   lastAt: number;
   genres: string;
+  season: number;
+  episode: number;
+  duration: number;
 }
 
 export interface DayAggregate {
@@ -789,6 +790,9 @@ export async function buildAdminSnapshot(): Promise<AdminSnapshot> {
         lastPct: hashNumber(hash, "last_pct"),
         lastAt: hashNumber(hash, "last_at"),
         genres: hash.genres ?? "",
+        season: hashNumber(hash, "season"),
+        episode: hashNumber(hash, "episode"),
+        duration: hashNumber(hash, "duration"),
       };
     })
     .filter((entry): entry is TitleAggregate => entry !== null)

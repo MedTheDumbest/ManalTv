@@ -38,6 +38,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+function titleLabel(entry: TitleAggregate): string {
+  const base = entry.title || `${entry.type || "media"} ${entry.tmdbId}`;
+  return entry.type === "tv" && entry.season > 0 && entry.episode > 0
+    ? `${base} S${entry.season}E${entry.episode}`
+    : base;
+}
+
 function formatWhen(at: number): string {
   if (!at) return "—";
   return new Date(at).toLocaleString(undefined, {
@@ -243,6 +250,17 @@ export default function AdminDashboard() {
     ).slice(0, 40);
   }, [snapshot]);
 
+  const mediaSplit = useMemo(() => {
+    const tally = new Map<string, number>();
+
+    for (const entry of snapshot?.titles ?? []) {
+      const kind = entry.type || "unknown";
+      tally.set(kind, (tally.get(kind) ?? 0) + entry.plays);
+    }
+
+    return Array.from(tally.entries()).sort((a, b) => b[1] - a[1]);
+  }, [snapshot]);
+
   if (!snapshot) {
     return (
       <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-4 text-center">
@@ -270,6 +288,13 @@ export default function AdminDashboard() {
     0,
     ...snapshot.sessions.map((session) => session.lastSeen),
   );
+  const totalSeconds = Math.max(1, totals.seconds ?? 0);
+  const totalWatches = Math.max(1, (totals.watch_starts ?? 0) + (totals.watch_stops ?? 0));
+  const avgSessionSeconds = Math.round(totalSeconds / totalWatches);
+  const completionRate =
+    (totals.watch_stops ?? 0) > 0
+      ? Math.round(((totals.watch_completes ?? 0) / (totals.watch_stops ?? 0)) * 100)
+      : 0;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-8">
@@ -328,7 +353,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard label="Watched (30d)" value={formatHours(totals.seconds_watched ?? 0)} hint={`${totals.watch_stops ?? 0} sessions`} />
             <StatCard label="Today" value={formatHours(today?.seconds ?? 0)} hint={`${today?.watch_stops ?? 0} sessions`} />
-            <StatCard label="Top title" value={topTitle?.title?.slice(0, 22) ?? "—"} hint={topTitle ? formatHours(topTitle.seconds) : undefined} />
+            <StatCard label="Top title" value={topTitle ? titleLabel(topTitle).slice(0, 22) : "—"} hint={topTitle ? formatHours(topTitle.seconds) : undefined} />
             <StatCard label="Active devices" value={String(snapshot.sessions.length)} hint={`last seen ${relative(lastSeen)}`} />
           </div>
 
@@ -367,6 +392,17 @@ export default function AdminDashboard() {
             <StatCard label="List changes" value={String((totals.list_adds ?? 0) + (totals.list_removes ?? 0))} hint={`${totals.list_adds ?? 0} added`} />
             <StatCard label="Errors" value={String((totals.player_errors ?? 0) + (totals.api_errors ?? 0))} hint={`${totals.player_errors ?? 0} player`} />
           </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Avg session" value={formatHours(avgSessionSeconds)} hint={`${totalWatches} plays recorded`} />
+            <StatCard label="Completion" value={`${completionRate}%`} hint={`${totals.watch_completes ?? 0} finished`} />
+            <StatCard label="Drawer opens" value={String(totals.drawer_opens ?? 0)} hint="episode browser" />
+            <StatCard
+              label="Media split"
+              value={mediaSplit.length > 0 ? (mediaSplit[0]?.[0] ?? "—") : "—"}
+              hint={mediaSplit.map(([kind, plays]) => `${kind} ${plays}`).join(" · ") || "no plays yet"}
+            />
+          </div>
         </section>
       ) : null}
 
@@ -384,8 +420,8 @@ export default function AdminDashboard() {
             <Table
               headers={["Title", "Type", "Plays", "Watched", "Avg %", "Completed", "Last"]}
               rows={titleRows.map((entry) => [
-                entry.title,
-                entry.type,
+                titleLabel(entry),
+                entry.type || "—",
                 String(entry.plays),
                 formatHours(entry.seconds),
                 `${entry.avgPct}%`,
